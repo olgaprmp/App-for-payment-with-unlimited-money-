@@ -1,0 +1,145 @@
+// backend/index.js
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const stripe = require('stripe')('your_stripe_secret_key');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// MongoDB models
+const UserSchema = new mongoose.Schema({
+      email: String,
+        password: String, // For simplicity; in production, hash passwords!
+          transactions: [{ amount: Number, method: String, date: Date }]
+});
+const User = mongoose.model('User', UserSchema);
+
+// Connect MongoDB
+mongoose.connect('mongodb://localhost:27017/unlimited_wallet', {
+      useNewUrlParser: true,
+        useUnifiedTopology: true
+}).then(() => console.log('MongoDB connected'));
+
+// User registration (simplified)
+app.post('/api/register', async (req, res) => {
+      const { email, password } = req.body;
+        const userExists = await User.findOne({ email });
+          if (userExists) return res.status(400).json({ error: 'User already exists' });
+
+            const user = new User({ email, password, transactions: [] });
+              await user.save();
+                res.json({ message: 'User registered' });
+});
+
+// Simulated unlimited balance API
+app.get('/api/balance/:email', async (req, res) => {
+      const user = await User.findOne({ email: req.params.email });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+          res.json({ balance: Number.MAX_SAFE_INTEGER });
+});
+
+// Create Stripe PaymentIntent for card payment
+app.post('/api/pay', async (req, res) => {
+      const { amount, email } = req.body;
+        const user = await User.findOne({ email });
+          if (!user) return res.status(404).json({ error: 'User not found' });
+
+            // Create payment intent with Stripe
+              const paymentIntent = await stripe.paymentIntents.create({
+                    amount: amount * 100, // in cents
+                        currency: 'usd',
+                            payment_method_types: ['card'],
+              });
+
+                // Log transaction with simulated unlimited balance (no deduction)
+                  user.transactions.push({ amount, method: 'card', date: new Date() });
+                    await user.save();
+
+                      res.json({ clientSecret: paymentIntent.client_secret });
+});
+
+// Get user transactions
+app.get('/api/transactions/:email', async (req, res) => {
+      const user = await User.findOne({ email: req.params.email });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+          res.json({ transactions: user.transactions });
+});
+
+const PORT = 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// frontend/src/App.js
+import React, { useState } from 'react';
+
+function App() {
+      const [email, setEmail] = useState('');
+        const [amount, setAmount] = useState('');
+          const [balance, setBalance] = useState(null);
+            const [transactions, setTransactions] = useState([]);
+
+              const fetchBalance = async () => {
+                    const res = await fetch(`http://localhost:5000/api/balance/${email}`);
+                        const data = await res.json();
+                            setBalance(data.balance);
+              };
+
+                const fetchTransactions = async () => {
+                        const res = await fetch(`http://localhost:5000/api/transactions/${email}`);
+                            const data = await res.json();
+                                setTransactions(data.transactions);
+                };
+
+                  const pay = async () => {
+                        const res = await fetch('http://localhost:5000/api/pay', {
+                                  method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ amount: Number(amount), email }),
+                        });
+                            const data = await res.json();
+                                alert('Payment processed (simulation).');
+                                    fetchTransactions();
+                  };
+
+                    return (
+                            <div style={{ padding: 20 }}>
+                                  <h1>Unlimited Money Wallet Simulator</h1>
+                                        <input placeholder="Enter your email" value={email} onChange={e => setEmail(e.target.value)} />
+    
+                                              <button onClick={fetchBalance}>Get Balance</button>
+                                                    {balance !== null && <p>Balance: {balance.toLocaleString()}</p>}
+
+                                                          <h2>Make Payment</h2>
+                                                                <input placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} type="number" />
+                                                                      <button onClick={pay}>Pay with Card (Simulated)</button>
+
+                                                                            <h2>Transactions</h2>
+                                                                                  <button onClick={fetchTransactions}>Load Transactions</button>
+                                                                                        <ul>
+                                                                                                {transactions.map((t, idx) => (
+                                                                                                              <li key={idx}>{t.amount} via {t.method} on {new Date(t.date).toLocaleString()}</li>
+                                                                                                ))}
+                                                                                                      </ul>
+                                                                                                          </div>
+                    );
+}
+
+export default App;
+
+                                                                                                ))}
+                    )
+                        })
+                  }
+                }
+              }
+}
+})
+              })
+})
+})
+})
+})
+})
